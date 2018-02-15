@@ -12,7 +12,7 @@
 static modbus_t* ctx;
 static modbus_mapping_t *mb_mapping;
 
-static uint16_t analogue_value = 0x1234;
+static uint16_t analogue_value = 0;
 
 
 int process_input_analogue_segment()
@@ -36,7 +36,7 @@ int process_constant_register4()
 
     address_offset = mb_mapping->start_registers + constant_register4;
     address = mb_mapping->tab_registers + address_offset;
-    *address = 0x7FFF;        // TBD
+    *address = 0x1234;        // TBD
 
     return retval;
 }

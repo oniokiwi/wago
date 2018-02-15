@@ -12,7 +12,7 @@
 
 #define analogue_segment              0
 #define enableDebug                   1
-#define constant_register4            0x4004
+#define constant_register4            0x2002
 
 // proclet
 int process_input_analogue_segment();
