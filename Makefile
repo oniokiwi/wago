@@ -20,7 +20,7 @@ HDR=wago.h \
     main.h \
     typedefs.h 
 
-LIBS=-lpthread -lmodbus -lmicrohttpd -ljson
+LIBS=-lpthread -lmodbus -lmicrohttpd 
 
 #DEPS = $(patsubst %,$(IDIR)/%,$(HDR))
 OBJ=$(patsubst %.c,%.o,$(SRC_C))
