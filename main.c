@@ -21,6 +21,7 @@
 static char query[MODBUS_TCP_MAX_ADU_LENGTH];
 
 #define MODBUS_DEFAULT_PORT 1502
+static int port = MODBUS_DEFAULT_PORT;
 
 
 static void usage(const char *app_name)
@@ -29,19 +30,19 @@ static void usage(const char *app_name)
     printf("%s [option <value>] ...\n", app_name);
     printf("\nOptions:\n");
     printf(" -p \t\t # Set Modbus port to listen on for incoming requests (Default 502)\n");
-    printf(" -w \t\t # These are 16 bits Read Write registers (Default %d)\n", UT_REGISTERS_NB);
     printf(" -? \t\t # Print this help menu\n");
-    printf("\nExamples:\n");
+    printf("\nExamples: (Port value MUST be greater than 1024)\n");
     printf("%s -p 1502  \t # Change the listen port to 1502\n", app_name);
-    printf("%s -w %d \t # Create %d holding register starting at zero.\n", app_name, UT_REGISTERS_NB,UT_REGISTERS_NB);
+    printf("\nWebserver URL\n");
+    printf("    http://<ipaddress:%d\n", port + HTTPSERVER_PORT);
     exit(1);
 }
 
 int main(int argc, char*argv[])
 {
-    extern void *handler( void *ptr );
+    extern void *microhttpd_handler( void *ptr );
     modbus_t *ctx;
-    int rc, opt, s = -1, port = MODBUS_DEFAULT_PORT;
+    int rc, opt, s = -1;
     uint16_t holding_register = UT_REGISTERS_NB;
     pthread_t thread1;
     char terminate;
@@ -52,23 +53,18 @@ int main(int argc, char*argv[])
 
     setvbuf(stdout, NULL, _IONBF, 0);                          // disable stdout buffering
 
-    while ((opt = getopt(argc, argv, "p:w:")) != -1)
+    while ((opt = getopt(argc, argv, "p:")) != -1)
     {
         switch (opt) {
         case 'p':
             port = atoi(optarg);
             break;
 
-        case 'w':
-            holding_register = atoi(optarg);
-            break;
-
         default:
             usage(*argv);
         }
     }
-    printf("Wago simulator...\n");
-    printf("port:%d HoldingRegisters:%d\n", port, holding_register );
+    printf("Wago simulator - port (%d)\n", port );
 
     for (;;)
     {
@@ -78,7 +74,7 @@ int main(int argc, char*argv[])
             mb_mapping = modbus_mapping_new_start_address(
                0, 0,
                0, 0,
-               0, holding_register,
+               0, 0x7FFF,
                0, 0);
 
             if (mb_mapping == NULL)
@@ -92,9 +88,10 @@ int main(int argc, char*argv[])
         thread_param = malloc(sizeof (thread_param_t));
         terminate = FALSE;
         thread_param -> ctx = ctx;
+        thread_param ->port = port;
         thread_param -> mb_mapping = mb_mapping;
         thread_param -> terminate = &terminate;
-        pthread_create( &thread1, NULL, handler, thread_param);
+        pthread_create( &thread1, NULL, microhttpd_handler, thread_param);
 
         s = modbus_tcp_listen(ctx, 1);
         modbus_tcp_accept(ctx, &s);

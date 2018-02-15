@@ -10,12 +10,13 @@
 typedef enum {false, true} bool;
 
 #define MODBUS_SUCCESS  0
+#define HTTPSERVER_PORT 10000
 
 typedef struct process_table_struct
 {
-	uint16_t address;
-	uint8_t  number_registers;
-	int (*handler)(uint16_t, uint16_t);
+    uint16_t address;
+    uint8_t  number_registers;
+    int (*handler)(uint16_t, uint16_t);
 }process_table_t;
 
 
@@ -30,24 +31,25 @@ typedef struct optargs_struct
 typedef struct thread_params_struct
 {
     modbus_t *ctx;
-	modbus_mapping_t* mb_mapping;
-	pthread_mutex_t mutex;
-	char *terminate;
+    modbus_mapping_t* mb_mapping;
+    pthread_mutex_t mutex;
+    int port;
+    char *terminate;
 }thread_param_t;
 
 typedef struct mbap_header_struct
 {
-	uint16_t transport_id;
-	uint16_t protocol_id;
-	uint16_t length;
-	uint8_t  unit_id;
+    uint16_t transport_id;
+    uint16_t protocol_id;
+    uint16_t length;
+    uint8_t  unit_id;
 }__attribute__((packed))mbap_header_t;
 
 typedef struct modbus_pdu_struct
 {
     mbap_header_t mbap;
-	uint8_t  fcode;
-	uint8_t  data[];
+    uint8_t  fcode;
+    uint8_t  data[];
 }__attribute__((packed))modbus_pdu_t;
 
 #endif

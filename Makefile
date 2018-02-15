@@ -6,7 +6,7 @@ LDIR=/usr/local/lib
 TARGET=wago
 CC=gcc
 #CFLAGS=-I$(IDIR) -L$(LDIR) -g -std=gnu99
-CFLAGS=-I/usr/local/include -L/usr/local/lib -g -std=gnu99
+CFLAGS=-I/usr/local/include -L/usr/local/lib -g 
 
 .PHONY: default all clean check cron
 
@@ -20,7 +20,7 @@ HDR=wago.h \
     main.h \
     typedefs.h 
 
-LIBS=-lpthread -lmodbus
+LIBS=-lpthread -lmodbus -lmicrohttpd -ljson
 
 #DEPS = $(patsubst %,$(IDIR)/%,$(HDR))
 OBJ=$(patsubst %.c,%.o,$(SRC_C))

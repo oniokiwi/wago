@@ -1,3 +1,7 @@
+#include <sys/types.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <microhttpd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <byteswap.h>
@@ -11,8 +15,49 @@
 // Private data
 static modbus_t* ctx;
 static modbus_mapping_t *mb_mapping;
-
 static uint16_t analogue_value = 0;
+static int port = 1502;
+static char page[1024];
+static bool debug = false;
+
+const char *get_page()
+{
+    sprintf(page,
+        "<html> " \
+        "<pre>" \
+            "<body>  \t\t\t\t <b>analogue output segment:</b> 0x%04X\n</body>" \
+        "</pre>" \
+        "</html>", analogue_value);
+    return page;
+}
+
+// Enable or disable debug
+//
+int process_read_enableDebug ()
+{
+    uint16_t *address;
+    uint16_t address_offset;
+    int retval = MODBUS_SUCCESS; // need to figure out what this constant is
+
+    if (debug)printf("%s\n", __PRETTY_FUNCTION__);
+
+    address_offset = mb_mapping->start_registers + enableDebug;
+    address = mb_mapping->tab_registers + address_offset;
+    *address = debug;        // TBD
+
+    return retval;
+}
+
+//
+// Enable or disable debug
+//
+int process_write_enableDebug (uint16_t value)
+{
+    int retval = MODBUS_SUCCESS;
+    if (debug)printf("%s - %s\n", __PRETTY_FUNCTION__, (value & 0x0001)?"TRUE":"FALSE");
+    debug = value ? true : false;
+    return retval;
+}
 
 
 int process_input_analogue_segment()
@@ -21,6 +66,7 @@ int process_input_analogue_segment()
     uint16_t address_offset;
     int retval = MODBUS_SUCCESS; // need to figure out what this constant is
 
+    if (debug)printf("%s\n", __PRETTY_FUNCTION__);
     address_offset = mb_mapping->start_registers + analogue_segment;
     address = mb_mapping->tab_registers + address_offset;
     *address = analogue_value;        // TBD
@@ -34,6 +80,7 @@ int process_constant_register4()
     uint16_t address_offset;
     int retval = MODBUS_SUCCESS; // need to figure out what this constant is
 
+    if (debug)printf("%s\n", __PRETTY_FUNCTION__);
     address_offset = mb_mapping->start_registers + constant_register4;
     address = mb_mapping->tab_registers + address_offset;
     *address = 0x1234;        // TBD
@@ -45,6 +92,7 @@ int process_output_analogue_segment(uint16_t value)
 {
     int retval = MODBUS_SUCCESS; // need to figure out what this constant is
 
+    if (debug)printf("%s - value %d\n", __PRETTY_FUNCTION__, value);
     analogue_value = value;
 
     return retval;
@@ -58,6 +106,10 @@ int process_read_register(uint16_t address)
     {
     case analogue_segment:
         process_input_analogue_segment();
+        break;
+
+    case enableDebug:
+    	process_read_enableDebug();
         break;
 
     case constant_register4:
@@ -80,6 +132,10 @@ int process_write_register(uint16_t address, uint16_t data)
     case analogue_segment:
         process_output_analogue_segment(data);
         break;
+
+    case enableDebug:
+    	process_write_enableDebug(data);
+    	break;
 
     default:
         retval = MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS;
@@ -156,22 +212,54 @@ void process_query(modbus_pdu_t* mb)
        modbus_reply_exception(ctx, (uint8_t*)mb, retval);
 }
 
-//
-// Thread handler
-//
-void *handler( void *ptr )
+
+static int ahc_echo(void *cls, struct MHD_Connection * connection,
+                         const char *url,
+                         const char *method, const char *version,
+                         const char *upload_data,
+                         size_t *upload_data_size, void **con_cls)
+{
+    struct MHD_Response *response;
+    int ret;
+
+    response = MHD_create_response_from_buffer (strlen(page),
+                                               (void*) get_page(), MHD_RESPMEM_PERSISTENT);
+
+    ret = MHD_queue_response (connection, MHD_HTTP_OK, response);
+    MHD_destroy_response (response);
+
+    return ret;
+}
+
+void *microhttpd_handler( void *ptr )
 {
     char *terminate;
-    char status[12] = "idle";
     thread_param_t* param = (thread_param_t*) ptr;
     ctx = param->ctx;
     mb_mapping = param->mb_mapping;
     terminate = param->terminate;
+    port = param->port + 10000;     // port = modbus port + 1000
     free(param);
+    struct MHD_Daemon *d;
 
-    while ( *terminate == false )
+    //printf("entering handler thread\n");
+    modbus_set_debug(ctx, debug);
+
+    d = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, port, NULL, NULL,
+                                         &ahc_echo, NULL, MHD_OPTION_END);
+
+    if (NULL == d)
     {
-
+        printf("unable to start microhttpd server\n");
+        exit(1);
     }
+
+    while (*terminate == false)
+    ;
+    MHD_stop_daemon (d);
+
+    //printf("exiting handler thread\n");
+
+    return 0;
 }
 
