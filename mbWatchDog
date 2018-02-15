@@ -1,0 +1,26 @@
+#!/bin/bash
+
+export LD_LIBRARY_PATH=/usr/local/lib
+
+id="0"
+
+
+check_process_running()
+{
+    id=`pgrep wago`
+    echo ${id}
+}
+
+entry()
+{
+    check_process_running
+    if [ -z $id ] ; then
+        ${HOME}/workspace/wago/wago
+    fi
+}
+
+# check if process running and if not running restart it.
+echo "running wago mdWatchdog"
+entry
+
+
