@@ -20,8 +20,11 @@
 
 static char query[MODBUS_TCP_MAX_ADU_LENGTH];
 
-#define MODBUS_DEFAULT_PORT 1502
+#define MODBUS_DEFAULT_PORT          1502
+#define MODBUS_REGISTER_UPDATE_DELAY 10
+
 static int port = MODBUS_DEFAULT_PORT;
+static int delay = MODBUS_REGISTER_UPDATE_DELAY;
 
 
 static void usage(const char *app_name)
@@ -30,11 +33,12 @@ static void usage(const char *app_name)
     printf("%s [option <value>] ...\n", app_name);
     printf("\nOptions:\n");
     printf(" -p \t\t # Set Modbus port to listen on for incoming requests (Default 502)\n");
+    printf(" -t \t\t # sets the time delay between register updates");
     printf(" -? \t\t # Print this help menu\n");
     printf("\nExamples: (Port value MUST be greater than 1024)\n");
     printf("%s -p 1502  \t # Change the listen port to 1502\n", app_name);
     printf("\nWebserver URL\n");
-    printf("    http://<ipaddress:%d\n", port + HTTPSERVER_PORT);
+    printf("    http://<ipaddress:%d\n\n\n", port + HTTPSERVER_PORT);
     exit(1);
 }
 
@@ -53,18 +57,20 @@ int main(int argc, char*argv[])
 
     setvbuf(stdout, NULL, _IONBF, 0);                          // disable stdout buffering
 
-    while ((opt = getopt(argc, argv, "p:")) != -1)
+    while ((opt = getopt(argc, argv, "p:t:")) != -1)
     {
         switch (opt) {
         case 'p':
             port = atoi(optarg);
+        case 't':
+        	delay = atoi(optarg);
             break;
 
         default:
             usage(*argv);
         }
     }
-    printf("Wago simulator - port (%d)\n", port );
+    printf("Wago simulator - port (%d), delay (%d) \n", port, delay );
 
     for (;;)
     {
@@ -88,9 +94,10 @@ int main(int argc, char*argv[])
         thread_param = malloc(sizeof (thread_param_t));
         terminate = FALSE;
         thread_param -> ctx = ctx;
-        thread_param ->port = port;
+        thread_param -> port = port;
         thread_param -> mb_mapping = mb_mapping;
         thread_param -> terminate = &terminate;
+        thread_param -> delay = delay;
         pthread_create( &thread1, NULL, microhttpd_handler, thread_param);
 
         s = modbus_tcp_listen(ctx, 1);

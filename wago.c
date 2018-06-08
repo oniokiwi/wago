@@ -12,22 +12,41 @@
 #include <string.h>
 
 
+static const uint16_t simulated_adc_reading[] =
+{
+	0x0000,
+	0x1000,
+	0x2000,
+	0x3000,
+	0x4000,
+	0x5000,
+	0x6000,
+	0x7000,
+	0x7FFF
+};
+
 // Private data
 static modbus_t* ctx;
 static modbus_mapping_t *mb_mapping;
-static uint16_t analogue_value = 0;
+static uint16_t analogue_output_segment = 0;
+static uint16_t analogue_input_segment  = 0;
 static int port = 1502;
 static char page[1024];
 static bool debug = false;
+
 
 const char *get_page()
 {
     sprintf(page,
         "<html> " \
         "<pre>" \
+            "<body>  \t\t\t\t <b>analogue input segment:</b> 0x%04X\n</body>" \
+        "</pre>" \
+        "<pre>" \
             "<body>  \t\t\t\t <b>analogue output segment:</b> 0x%04X\n</body>" \
         "</pre>" \
-        "</html>", analogue_value);
+        "</html>", analogue_input_segment, analogue_output_segment);
+
     return page;
 }
 
@@ -69,7 +88,7 @@ int process_input_analogue_segment()
     if (debug)printf("%s\n", __PRETTY_FUNCTION__);
     address_offset = mb_mapping->start_registers + analogue_segment;
     address = mb_mapping->tab_registers + address_offset;
-    *address = analogue_value;        // TBD
+    *address = analogue_input_segment;        // TBD
 
     return retval;
 }
@@ -93,7 +112,7 @@ int process_output_analogue_segment(uint16_t value)
     int retval = MODBUS_SUCCESS; // need to figure out what this constant is
 
     if (debug)printf("%s - value %d\n", __PRETTY_FUNCTION__, value);
-    analogue_value = value;
+    analogue_output_segment = value;
 
     return retval;
 }
@@ -233,12 +252,15 @@ static int ahc_echo(void *cls, struct MHD_Connection * connection,
 
 void *microhttpd_handler( void *ptr )
 {
+	int i = 0;
+	int delay = 0;
     char *terminate;
     thread_param_t* param = (thread_param_t*) ptr;
     ctx = param->ctx;
     mb_mapping = param->mb_mapping;
     terminate = param->terminate;
     port = param->port + 10000;     // port = modbus port + 1000
+    delay = param->delay;
     free(param);
     struct MHD_Daemon *d;
 
@@ -255,7 +277,12 @@ void *microhttpd_handler( void *ptr )
     }
 
     while (*terminate == false)
-    ;
+    {
+    	sleep(delay);
+    	analogue_input_segment = simulated_adc_reading[i++];
+    	i %= (sizeof simulated_adc_reading/sizeof simulated_adc_reading[0]);
+    }
+
     MHD_stop_daemon (d);
 
     //printf("exiting handler thread\n");

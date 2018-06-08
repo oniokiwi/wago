@@ -34,6 +34,7 @@ typedef struct thread_params_struct
     modbus_mapping_t* mb_mapping;
     pthread_mutex_t mutex;
     int port;
+    int delay;
     char *terminate;
 }thread_param_t;
 
